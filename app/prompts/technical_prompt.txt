@@ -1,0 +1,1 @@
+Analyze RSI, EMA alignment, MACD, ADX, ATR, supertrend, pattern, and volume spike.

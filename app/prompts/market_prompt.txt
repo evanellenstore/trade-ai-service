@@ -1,0 +1,1 @@
+Analyze trend, trend strength, support, resistance, market regime, volatility, and VWAP position.
