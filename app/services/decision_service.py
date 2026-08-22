@@ -18,6 +18,9 @@ class DecisionService:
         self._graph = build_trading_graph(decision_agent)
 
     async def evaluate(self, signal: SignalGenerated, snapshot: MarketSnapshot) -> AIDecisionEvent:
+        # The Kafka consumer calls this method after receiving both matching events.
+        # Build the trading state, run the AI graph, and map its output to a domain event.
+        # Publishing that event allows downstream services to consume the AI decision.
         state = TradingState.from_events(signal, snapshot)
         result = await self._graph.ainvoke(state)
         decision = AIDecisionEvent(
@@ -29,6 +32,7 @@ class DecisionService:
             reason=result["reason"],
             aiVersion=self._settings.ai_version,
         )
+        # Publish the completed decision so broker, portfolio, and monitoring services can react to it.
         await self._producer.publish(self._settings.ai_decision_topic, signal.symbol, decision)
         logger.info("ai_decision_created", extra={"signal_id": signal.signal_id, "decision": decision.decision})
         return decision

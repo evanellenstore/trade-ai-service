@@ -17,12 +17,57 @@ from app.services.decision_service import DecisionService
 DECISIONS = Counter("trade_ai_decisions_total", "AI decisions published", ["decision"])
 
 
+# Application starts
+#    |
+#    +-- FastAPI handles HTTP requests
+#    |       +-- GET /health
+#    |       +-- GET /ready
+#    |       +-- GET /metrics
+#    |
+#    +-- lifespan() creates shared services
+#            |
+#            +-- ContextService
+#                    |
+#                    +-- KafkaConsumer listens to configured topics
+#                            |
+#                            +-- handle_message(topic, payload)
+#                                    |
+#                                    +-- Store MarketSnapshot or SignalGenerated
+#                                    |
+#                                    +-- Match events by symbol and timeframe
+#                                            |
+#                                            +-- DecisionService.evaluate()
+#                                                    |
+#                                                    +-- AI graph creates decision
+#                                                    |  runs compiled LangGraph
+#                                                    |  app/graph/trading_graph.py
+#                                                    |
+#                                                    +-- market_agent
+#                                                            |
+#                                                            +-- technical_agent
+#                                                                    |
+#                                                                    +-- strategy_agent
+#                                                                            |
+#                                                                            +-- decision_agent
+#                                                                                    |
+#                                                                                    +-- OllamaClient.decide(prompt)
+#                                                                                            |
+#                                                                                            +-- ChatOllama.ainvoke()
+#                                                                                                    |
+#                                                                                                    +-- Ollama LLM returns JSON
+#                                                                                                            |
+#                                                                                                            +-- AI decision
+#                                                                                                                    |
+#                                                                                                                    +-- KafkaProducer.publish()
+
+
 def configure_logging(level: str) -> None:
     logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Start shared Kafka resources and the event-driven decision pipeline.
     settings = get_settings()
     configure_logging(settings.log_level)
     producer = KafkaProducer(settings.kafka_bootstrap_servers)
@@ -34,12 +79,14 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        # Stop the background listener cleanly when the web application shuts down.
         consumer_task.cancel()
         await asyncio.gather(consumer_task, return_exceptions=True)
         await producer.stop()
 
 
 app = FastAPI(title="Trade AI Service", version=get_settings().ai_version, lifespan=lifespan)
+# FastAPI routes handle HTTP requests, while the Kafka task handles event requests.
 app.include_router(create_health_router(get_settings().app_name))
 
 

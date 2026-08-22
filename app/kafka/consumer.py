@@ -21,11 +21,16 @@ class KafkaConsumer:
 
     async def run(self, handler: MessageHandler) -> None:
         await self._consumer.start()
+        print("Kafka consumer started and listening for messages", flush=True)
         try:
             async for message in self._consumer:
                 try:
+                    print(f"Kafka message received: topic={message.topic}, value={message.value}", flush=True)
                     await handler(message.topic, message.value)
+                    print(f"Kafka message processed: topic={message.topic}", flush=True)
                 except Exception:
+                    print(f"Kafka message processing failed: topic={message.topic}", flush=True)
                     logger.exception("kafka_message_processing_failed", extra={"topic": message.topic})
         finally:
             await self._consumer.stop()
+            print("Kafka consumer stopped", flush=True)
