@@ -63,15 +63,24 @@ class TradingState(BaseModel):
     @classmethod
     def from_events(cls, signal: SignalGenerated, snapshot: MarketSnapshot) -> "TradingState":
         data = snapshot.model_dump()
+        print(f" ============ ========== Trading state data initialized: {data}")
         for shared_field in ("symbol", "symbol_token", "timeframe", "price", "snapshot_time"):
             data.pop(shared_field, None)
+            
+        print(f"============ ==========After popup Trading state data : {data}")  
         state = cls(
             signal_id=signal.signal_id, symbol=signal.symbol, symbol_token=signal.symbol_token,
             timeframe=signal.timeframe, strategy_name=signal.strategy_name, signal=signal.signal,
             strategy_confidence=signal.confidence, signal_reason=signal.reason, price=snapshot.price,
             snapshot_time=snapshot.snapshot_time, **data,
         )
+        
+        print(f"============ ========== Trading state created: {state}")
+        
         state.indicators = [name for name in INDICATORS if getattr(state, name.lower(), None) is not None]
+        
+        print(f"============ ========== Trading state indicators: {state.indicators}")
+        
         if state.pattern not in PATTERNS:
             state.pattern = "NONE"
         return state

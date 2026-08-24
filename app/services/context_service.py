@@ -25,7 +25,7 @@ class ContextService:
 
     async def run(self) -> None:
         # Keep the Kafka listener running and route every received message to the context handler.
-        print("Context service started; waiting for Kafka events", flush=True)
+        print(" 1. ============ ========== Context service started; waiting for Kafka events", flush=True)
         await self._consumer.run(self.handle_message)
 
     async def handle_message(self, topic: str, payload: dict) -> None:
@@ -39,21 +39,24 @@ class ContextService:
             key = (event.symbol, event.timeframe)
             self._signals[key] = event
         else:
-            print(f"Unsupported Kafka topic ignored: topic={topic}", flush=True)
+            print(f" 2. ============ ========== Unsupported Kafka topic ignored: topic={topic}", flush=True)
             return
 
         # Keep immediate console visibility for local debugging of the Kafka-to-decision flow.
-        print(f"Context event stored: topic={topic}, symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
+        print(f" 3. ============ ========== Context event stored: topic={topic}, symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
 
         # A decision requires both a market snapshot and a generated signal for the same context.
         key = (event.symbol, event.timeframe)
+        print(f" 4. ============ ========== Context key: {key}", flush=True)
         signal = self._signals.get(key)
+        print(f" 5. ============ ========== Retrieved signal: {signal is not None}", flush=True)
         snapshot = self._snapshots.get(key)
+        print(f" 6. ============ ========== Retrieved snapshot: {snapshot is not None}", flush=True)
         if signal and snapshot:
             # Evaluate the complete pair, then remove the signal to prevent duplicate processing.
-            print(f"Complete trading context found: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
+            print(f" 7. ============ ========== Complete trading context found: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
             await self._decision_service.evaluate(signal, snapshot)
             self._signals.pop(key, None)
-            print(f"AI decision evaluation completed: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
+            print(f" ============ ========== AI decision evaluation completed: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
         else:
-            print(f"Waiting for matching event: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
+            print(f"============ ========== Waiting for matching event: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)

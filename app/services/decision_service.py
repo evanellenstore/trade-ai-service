@@ -22,6 +22,11 @@ class DecisionService:
         # Build the trading state, run the AI graph, and map its output to a domain event.
         # Publishing that event allows downstream services to consume the AI decision.
         state = TradingState.from_events(signal, snapshot)
+        print(f" ********************* Trading state created: {state}")
+
+        # ainvoke() asynchronously executes the compiled LangGraph from START to END.
+        # Each node receives the current TradingState and returns its analysis for the next node.
+        # LangGraph waits for all nodes, including the Ollama-backed decision_agent, and returns the final state.
         result = await self._graph.ainvoke(state)
         decision = AIDecisionEvent(
             signalId=signal.signal_id,
