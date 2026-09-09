@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     ai_decision_topic: str = "ai.decision"
     kafka_auto_offset_reset: str = "latest"
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen3:4b"
+    ollama_model: str = "llama3.2:3b"
     ollama_temperature: float = Field(default=0.1, ge=0, le=2)
     ai_version: str = "1.0.0"
     llm_timeout_seconds: float = Field(default=30.0, gt=0)

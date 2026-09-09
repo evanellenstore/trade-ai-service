@@ -8,3 +8,4 @@ def test_events_build_unified_state(signal, snapshot):
     assert state.price == 262.6
     assert state.ema20 == 260
     assert state.snapshot_time == snapshot.snapshot_time
+    assert state.indicators == ["EMA_CROSSOVER", "MACD", "RSI", "SUPER_TREND", "VWAP", "ADX_DI"]

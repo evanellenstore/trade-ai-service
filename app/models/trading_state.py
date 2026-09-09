@@ -9,9 +9,13 @@ from app.models.market_snapshot import MarketSnapshot
 from app.models.signal_generated import SignalGenerated
 
 
-INDICATORS = {
-    "EMA_CROSSOVER", "MACD", "RSI", "SUPER_TREND", "VWAP", "ADX_DI",
-    "BB_REVERSAL", "CMF", "MFI", "MULTI_INDICATOR", "PIVOT_BREAKOUT", "STOCHASTIC",
+INDICATOR_FIELDS = {
+    "EMA_CROSSOVER": ("ema20", "ema50"),
+    "MACD": ("macd",),
+    "RSI": ("rsi14",),
+    "SUPER_TREND": ("supertrend_signal",),
+    "VWAP": ("vwap",),
+    "ADX_DI": ("adx",),
 }
 PATTERNS = {
     "AscendingTriangle", "BearFlag", "BullFlag", "CupAndHandle", "DescendingTriangle",
@@ -30,6 +34,7 @@ class TradingState(BaseModel):
     strategy_name: str
     signal: str
     strategy_confidence: float
+    signal_strength: Optional[str] = None
     price: float
     trend: str
     trend_strength: str
@@ -51,9 +56,9 @@ class TradingState(BaseModel):
     resistance1: Optional[float] = None
     pattern: str = "NONE"
     indicators: list[str] = Field(default_factory=list)
-    market_analysis: str = ""
-    technical_analysis: str = ""
-    strategy_analysis: str = ""
+    market_analysis: dict[str, Any] = Field(default_factory=dict)
+    technical_analysis: dict[str, Any] = Field(default_factory=dict)
+    strategy_analysis: dict[str, Any] = Field(default_factory=dict)
     decision: Optional[str] = None
     confidence: Optional[int] = None
     reason: Optional[str] = None
@@ -62,22 +67,39 @@ class TradingState(BaseModel):
 
     @classmethod
     def from_events(cls, signal: SignalGenerated, snapshot: MarketSnapshot) -> "TradingState":
+        print(f"------------------------- Trading state from_events called with signal: {signal}")
+        print(f"------------------------- Trading state from_events called with snapshot: {snapshot}")
         data = snapshot.model_dump()
-        print(f" ============ ========== Trading state data initialized: {data}")
+        # print(f" ============ ========== Trading state data initialized: {data}")
         for shared_field in ("symbol", "symbol_token", "timeframe", "price", "snapshot_time"):
             data.pop(shared_field, None)
             
-        print(f"============ ==========After popup Trading state data : {data}")  
+       # print(f"============ ==========After popup Trading state data : {data}")  
+        # create a new TradingState instance using the signal and snapshot data, excluding shared fields
+        # The shared fields are removed from the snapshot data to avoid overwriting the values from the signal event, which are considered more relevant for the trading state.
+        # The remaining fields from the snapshot are included in the TradingState to provide additional context for the AI decision-making process.
+        # it is same like 
         state = cls(
-            signal_id=signal.signal_id, symbol=signal.symbol, symbol_token=signal.symbol_token,
-            timeframe=signal.timeframe, strategy_name=signal.strategy_name, signal=signal.signal,
-            strategy_confidence=signal.confidence, signal_reason=signal.reason, price=snapshot.price,
-            snapshot_time=snapshot.snapshot_time, **data,
+            signal_id=signal.signal_id, 
+            symbol=signal.symbol, 
+            symbol_token=signal.symbol_token,
+            timeframe=signal.timeframe, 
+            strategy_name=signal.strategy_name, 
+            signal=signal.signal,
+            strategy_confidence=signal.confidence, 
+            signal_reason=signal.reason, 
+            price=snapshot.price,
+            snapshot_time=snapshot.snapshot_time,
+            **data,
         )
         
         print(f"============ ========== Trading state created: {state}")
         
-        state.indicators = [name for name in INDICATORS if getattr(state, name.lower(), None) is not None]
+        state.indicators = [
+            name
+            for name, fields in INDICATOR_FIELDS.items()
+            if all(getattr(state, field) is not None for field in fields)
+        ]
         
         print(f"============ ========== Trading state indicators: {state.indicators}")
         

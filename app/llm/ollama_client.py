@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -25,15 +26,21 @@ class OllamaClient:
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4), reraise=True)
     async def decide(self, prompt: str) -> AIDecision:
-        response = await self._model.ainvoke([
-            SystemMessage(content="Return only valid JSON with decision, confidence, and reason."),
-            HumanMessage(content=prompt),
-        ])
-        content: Any = response.content
-        if isinstance(content, list):
-            content = "".join(str(item.get("text", item)) if isinstance(item, dict) else str(item) for item in content)
+        started_at = time.perf_counter()
+        print(f"================== Ollama prompt: {prompt}")
         try:
-            return AIDecision.model_validate_json(str(content))
-        except Exception:
-            logger.exception("ollama_invalid_json")
-            raise ValueError("Ollama returned an invalid AI decision JSON payload")
+            response = await self._model.ainvoke([
+                SystemMessage(content="Return only valid JSON with decision, confidence, and reason."),
+                HumanMessage(content=prompt),
+            ])
+            content: Any = response.content
+            if isinstance(content, list):
+                content = "".join(str(item.get("text", item)) if isinstance(item, dict) else str(item) for item in content)
+            try:
+                return AIDecision.model_validate_json(str(content))
+            except Exception:
+                logger.exception("ollama_invalid_json")
+                raise ValueError("Ollama returned an invalid AI decision JSON payload")
+        finally:
+            elapsed_seconds = time.perf_counter() - started_at
+            print(f"===================== Ollama request took {elapsed_seconds:.3f} seconds")
