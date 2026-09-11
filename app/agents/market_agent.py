@@ -16,10 +16,18 @@ def market_agent(state: TradingState) -> dict[str, object]:
     # --------------------------------------------------
 
     trend = (state.trend or "UNKNOWN").upper()
+    if trend in {"UP", "BULLISH"}:
+        trend = "BULLISH"
+    elif trend in {"DOWN", "BEARISH"}:
+        trend = "BEARISH"
+    elif trend in {"SIDEWAYS", "NEUTRAL"}:
+        trend = "SIDEWAYS"
+    else:
+        trend = "UNKNOWN"
 
-    if trend == "UP":
+    if trend == "BULLISH":
         bullish_score += 3
-    elif trend == "DOWN":
+    elif trend == "BEARISH":
         bearish_score += 3
 
     # --------------------------------------------------
@@ -29,9 +37,9 @@ def market_agent(state: TradingState) -> dict[str, object]:
     trend_strength = (state.trend_strength or "UNKNOWN").upper()
 
     if trend_strength == "STRONG":
-        if trend == "UP":
+        if trend == "BULLISH":
             bullish_score += 2
-        elif trend == "DOWN":
+        elif trend == "BEARISH":
             bearish_score += 2
 
     # --------------------------------------------------
@@ -41,9 +49,9 @@ def market_agent(state: TradingState) -> dict[str, object]:
     market_regime = (state.market_regime or "UNKNOWN").upper()
 
     if market_regime == "TRENDING":
-        if trend == "UP":
+        if trend == "BULLISH":
             bullish_score += 1
-        elif trend == "DOWN":
+        elif trend == "BEARISH":
             bearish_score += 1
 
     # --------------------------------------------------
@@ -65,14 +73,14 @@ def market_agent(state: TradingState) -> dict[str, object]:
     # ATR Volatility
     # --------------------------------------------------
 
-    if state.atr is None:
+    if state.atr is None or state.price <= 0:
         volatility = "UNKNOWN"
-    elif state.atr >= 20:
+    elif state.atr / state.price >= 0.03:
         volatility = "HIGH"
-    elif state.atr >= 10:
-        volatility = "MEDIUM"
-    else:
+    elif state.atr / state.price <= 0.01:
         volatility = "LOW"
+    else:
+        volatility = "MEDIUM"
 
     # --------------------------------------------------
     # Support / Resistance Distance

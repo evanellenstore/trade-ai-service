@@ -234,6 +234,116 @@ The advisor prompt explicitly prohibits order execution, quantity calculation, p
 
 ## Event contracts
 
+## Observed end-to-end data flow
+
+The following live trace shows one event moving through the platform:
+
+```mermaid
+flowchart LR
+    T[market.tick\nBroker Service] --> C[market.candle\nMarket Service]
+    C --> I[indicator.updated\nMarket Service]
+    I --> P[pattern.detected\nMarket Service]
+    I --> S[signal.generated\nStrategy Service]
+    P --> M[market.snapshot\nMarket Service]
+    S --> A[AI ContextService]
+    M --> A
+    A --> D[LangGraph + Qwen3]
+    D --> O[ai.decision]
+```
+
+All events in this trace can be correlated with the subscription metadata:
+
+```text
+symbol: EICHERMOT-EQ
+symbolToken/token: 910
+subscriptionId: fa3d9832-d175-4fd2-bf07-6cff4d8381a6
+subscriptionName: my first group
+timeframe: ONE_MINUTE
+origin: LIVE
+```
+
+### Topic sequence
+
+1. `market.tick` carries the broker quote (`ltp`, OHLC, volume, exchange, and timestamp).
+2. `market.candle` represents the finalized one-minute candle built from ticks.
+3. `indicator.updated` carries the calculated technical indicators for the symbol and timeframe.
+4. `pattern.detected` reports the chart-pattern result; this sample is `NoPatternDetected`.
+5. `signal.generated` carries the configured strategy result. In this sample, the RSI strategy emits `BUY` with confidence `95`.
+6. `market.snapshot` packages the market state consumed by the AI service. This sample reports `BEARISH`, `STRONG`, `SELL` supertrend, and `MEDIUM` signal strength.
+7. `ai.decision` is the validated advisory result. This sample emits `BUY` with confidence `90`; it is advisory only and does not place an order.
+
+### Sample event payloads
+
+#### `market.tick`
+
+```json
+{
+  "symbol": "EICHERMOT-EQ",
+  "ltp": 7564.5,
+  "token": "910",
+  "volume": 334440,
+  "high": 7633,
+  "low": 7545,
+  "subscriptionName": "my first group",
+  "exchange": "NSE_CM",
+  "event": "SNAP_QUOTE",
+  "subscriptionId": "fa3d9832-d175-4fd2-bf07-6cff4d8381a6",
+  "close": 7697,
+  "open": 7600,
+  "timestamp": "2026-09-11T15:00:38.756299"
+}
+```
+
+#### `market.candle`
+
+```json
+{
+  "id": 38375,
+  "symbol": "SUNPHARMA-EQ",
+  "symbolToken": "3351",
+  "exchange": "NSE_CM",
+  "subscriptionId": "fa3d9832-d175-4fd2-bf07-6cff4d8381a6",
+  "subscriptionName": "my first group",
+  "timeframe": "ONE_MINUTE",
+  "candleTime": "2026-09-11T14:59:00",
+  "endTime": "2026-09-11T15:00:00",
+  "open": 1836.8,
+  "high": 1836.8,
+  "low": 1836.8,
+  "close": 1836.8,
+  "volume": 1184768.0,
+  "ltp": 1836.8,
+  "createdAt": "2026-09-11T15:00:41.133372",
+  "startTime": "2026-09-11T14:59:00"
+}
+```
+
+The candle example uses `SUNPHARMA-EQ`, while the other examples use `EICHERMOT-EQ`. It is therefore a valid topic example but not part of the same symbol-level correlation trace.
+
+#### `indicator.updated`, `pattern.detected`, `signal.generated`, `market.snapshot`, and `ai.decision`
+
+The remaining sample payloads should retain the fields shown in the live event contracts. The important hand-off fields are:
+
+| Topic | Producer | Consumer or next stage | Correlation fields |
+| --- | --- | --- | --- |
+| `market.tick` | Broker Service | Market Service | `symbol`, `token`, `subscriptionId` |
+| `market.candle` | Market Service | Market persistence/consumers | `symbol`, `symbolToken`, `timeframe`, `candleTime` |
+| `indicator.updated` | Market Service | Strategy Service | `symbol`, `symbolToken`, `timeframe`, `subscriptionId` |
+| `pattern.detected` | Market Service | Strategy/AI context | `symbol`, `subscriptionId`, `runId`, `origin` |
+| `signal.generated` | Strategy Service | AI Service | `signalId`, `symbol`, `symbolToken`, `timeframe` |
+| `market.snapshot` | Market Service | AI Service | `symbol`, `symbolToken`, `timeframe`, `runId`, `origin` |
+| `ai.decision` | AI Service | UI, audit, or downstream advisory consumers | `signalId`, `symbol`, `strategy` |
+
+### Consistency check for the observed trace
+
+The sample contains a decision-direction mismatch that should be reviewed before using the AI result operationally:
+
+- `market.snapshot`: `BEARISH`, `supertrendSignal: SELL`, price below EMA20/EMA50, and `signalStrength: MEDIUM`.
+- `signal.generated`: RSI strategy emits `BUY` with confidence `95`.
+- `ai.decision`: emits `BUY`, but its reason claims `SuperTrend = BUY`, bullish EMA alignment, price above VWAP, and `Trend = UP`.
+
+This suggests that the decision prompt or field mapping may be reading stale, inverted, or differently named values. The AI service remains advisory only; no trade execution should be connected until the snapshot-to-reason consistency is verified.
+
 ### Input: `market.snapshot`
 
 ```json

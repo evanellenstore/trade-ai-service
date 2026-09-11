@@ -12,31 +12,40 @@ def strategy_agent(state: TradingState) -> dict[str, object]:
 
     signal = (state.signal or "HOLD").upper()
     trend = (state.trend or "SIDEWAYS").upper()
+    if trend in {"UP", "BULLISH"}:
+        trend = "BULLISH"
+    elif trend in {"DOWN", "BEARISH"}:
+        trend = "BEARISH"
+    elif trend in {"SIDEWAYS", "NEUTRAL"}:
+        trend = "SIDEWAYS"
+    else:
+        trend = "UNKNOWN"
 
     # Trend Alignment
 
     if signal == "BUY":
 
-        if trend == "UP":
+        if trend == "BULLISH":
             bullish_score += 2
 
-        elif trend == "DOWN":
+        elif trend == "BEARISH":
             bearish_score += 2
 
     elif signal == "SELL":
 
-        if trend == "DOWN":
+        if trend == "BEARISH":
             bearish_score += 2
 
-        elif trend == "UP":
+        elif trend == "BULLISH":
             bullish_score += 2
 
     # SuperTrend Confirmation
 
-    if state.supertrend_signal == signal:
+    supertrend = (state.supertrend_signal or "UNKNOWN").upper()
+    if supertrend == "BUY":
         bullish_score += 2
-    else:
-        bearish_score += 1
+    elif supertrend == "SELL":
+        bearish_score += 2
 
     # EMA Confirmation
 
@@ -52,10 +61,9 @@ def strategy_agent(state: TradingState) -> dict[str, object]:
         and state.ema20 < state.ema50
     )
 
-    if signal == "BUY" and bullish_ema:
+    if bullish_ema:
         bullish_score += 2
-
-    if signal == "SELL" and bearish_ema:
+    elif bearish_ema:
         bearish_score += 2
 
     # MACD Confirmation
@@ -68,8 +76,11 @@ def strategy_agent(state: TradingState) -> dict[str, object]:
 
     # Volume Confirmation
 
-    if state.volume_spike:
-        bullish_score += 1
+    if state.volume_spike and signal in {"BUY", "SELL"}:
+        if signal == "BUY":
+            bullish_score += 1
+        else:
+            bearish_score += 1
 
     # ADX Confirmation
 
@@ -79,7 +90,6 @@ def strategy_agent(state: TradingState) -> dict[str, object]:
 
         if state.adx >= 25:
             trend_quality = "STRONG"
-            bullish_score += 1
 
         elif state.adx >= 20:
             trend_quality = "MODERATE"
@@ -99,8 +109,15 @@ def strategy_agent(state: TradingState) -> dict[str, object]:
     # Final Validation Score
 
     validation_score = bullish_score - bearish_score
+    supertrend_conflict = (
+        signal in {"BUY", "SELL"}
+        and supertrend in {"BUY", "SELL"}
+        and supertrend != signal
+    )
 
-    if validation_score >= 3:
+    if supertrend_conflict:
+        validation_result = "CONFLICT"
+    elif validation_score >= 3:
         validation_result = "STRONG_CONFIRMATION"
 
     elif validation_score >= 1:
@@ -122,6 +139,8 @@ def strategy_agent(state: TradingState) -> dict[str, object]:
             "trend": trend,
             "trend_strength": state.trend_strength,
             "trend_quality": trend_quality,
+            "supertrend": supertrend,
+            "supertrend_conflict": supertrend_conflict,
             "validation_score": validation_score,
             "validation_result": validation_result,
             "bullish_score": bullish_score,

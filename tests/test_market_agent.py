@@ -1,6 +1,19 @@
 from app.agents.market_agent import market_agent
 
 
+def test_market_agent_uses_percentage_atr_for_volatility(state):
+    force_mot_state = state.model_copy(update={
+        "price": 17705.0,
+        "trend": "SIDEWAYS",
+        "market_regime": "LOW_VOLATILITY",
+        "atr": 107.55647205488602,
+        "vwap": 17732.7295292245,
+    })
+
+    analysis = market_agent(force_mot_state)["market_analysis"]
+
+    assert analysis["volatility"] == "LOW"
+
 def test_market_agent_reports_price_at_vwap(state):
     market_state = state.model_copy(update={
         "price": 1294.9,
