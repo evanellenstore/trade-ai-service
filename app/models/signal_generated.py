@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
+from datetime import datetime
 
 
 class SignalGenerated(BaseModel):
@@ -13,3 +14,4 @@ class SignalGenerated(BaseModel):
     confidence: float = Field(ge=0, le=100)
     price: float = Field(gt=0)
     reason: str = ""
+    timestamp: datetime | None = None

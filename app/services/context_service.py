@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 
 from app.config.settings import Settings
 from app.kafka.consumer import KafkaConsumer
@@ -14,14 +15,20 @@ class ContextService:
     def __init__(self, settings: Settings, decision_service: DecisionService):
         self._settings = settings
         self._decision_service = decision_service
-        self._snapshots: dict[tuple[str, str], MarketSnapshot] = {}
-        self._signals: dict[tuple[str, str], SignalGenerated] = {}
+        self._snapshots: dict[tuple[str, str, datetime | None], MarketSnapshot] = {}
+        self._signals: dict[tuple[str, str, datetime | None], SignalGenerated] = {}
         self._consumer = KafkaConsumer(
             settings.kafka_bootstrap_servers,
             settings.kafka_group_id,
             [settings.market_snapshot_topic, settings.signal_generated_topic],
             settings.kafka_auto_offset_reset,
         )
+
+    @staticmethod
+    def _event_time(value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return value.replace(tzinfo=None)
 
     async def run(self) -> None:
         # Keep the Kafka listener running and route every received message to the context handler.
@@ -32,11 +39,11 @@ class ContextService:
         # Deserialize each supported topic into its typed event and index it by symbol and timeframe.
         if topic == self._settings.market_snapshot_topic:
             event = MarketSnapshot.model_validate(payload)
-            key = (event.symbol, event.timeframe)
+            key = (event.symbol, event.timeframe, self._event_time(event.snapshot_time))
             self._snapshots[key] = event
         elif topic == self._settings.signal_generated_topic:
             event = SignalGenerated.model_validate(payload)
-            key = (event.symbol, event.timeframe)
+            key = (event.symbol, event.timeframe, self._event_time(event.timestamp))
             self._signals[key] = event
         else:
             print(f" 2. ============ ========== Unsupported Kafka topic ignored: topic={topic}", flush=True)
@@ -46,17 +53,25 @@ class ContextService:
         print(f" 3. ============ ========== Context event stored: topic={topic}, symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
 
         # A decision requires both a market snapshot and a generated signal for the same context.
-        key = (event.symbol, event.timeframe)
+        key = (event.symbol, event.timeframe,
+               self._event_time(event.snapshot_time) if topic == self._settings.market_snapshot_topic
+               else self._event_time(event.timestamp))
         print(f" 4. ============ ========== Context key: {key}", flush=True)
         signal = self._signals.get(key)
+        legacy_key = (event.symbol, event.timeframe, None)
+        if signal is None:
+            signal = self._signals.get(legacy_key)
         print(f" 5. ============ ========== Retrieved signal: {signal is not None}", flush=True)
         snapshot = self._snapshots.get(key)
+        if snapshot is None and key[2] is None:
+            snapshot = self._snapshots.get((event.symbol, event.timeframe, None))
         print(f" 6. ============ ========== Retrieved snapshot: {snapshot is not None}", flush=True)
         if signal and snapshot:
             # Evaluate the complete pair, then remove the signal to prevent duplicate processing.
             print(f" 7. ============ ========== Complete trading context found: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
             await self._decision_service.evaluate(signal, snapshot)
-            self._signals.pop(key, None)
+            signal_key = (signal.symbol, signal.timeframe, self._event_time(signal.timestamp))
+            self._signals.pop(signal_key, None)
             print(f" ============ ========== AI decision evaluation completed: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
         else:
             print(f"============ ========== Waiting for matching event: symbol={event.symbol}, timeframe={event.timeframe}", flush=True)
