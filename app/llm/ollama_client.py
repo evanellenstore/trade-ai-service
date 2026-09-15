@@ -21,6 +21,7 @@ class OllamaClient:
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             temperature=settings.ollama_temperature,
+            num_ctx=settings.ollama_context_window,
             format="json",
         )
 
@@ -36,6 +37,10 @@ class OllamaClient:
             content: Any = response.content
             if isinstance(content, list):
                 content = "".join(str(item.get("text", item)) if isinstance(item, dict) else str(item) for item in content)
+            if isinstance(content, dict) and "error" in content:
+                error = content["error"]
+                logger.error("ollama_request_error: %s", error)
+                raise RuntimeError(f"Ollama rejected the request: {error}")
             try:
                 return AIDecision.model_validate_json(str(content))
             except Exception:

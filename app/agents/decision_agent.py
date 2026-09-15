@@ -19,6 +19,7 @@ class DecisionAgent:
             "market": state.market_analysis,
             "technical": state.technical_analysis,
             "strategy": state.strategy_analysis,
+            "candles": [candle.model_dump(by_alias=True) for candle in state.candles],
         }
 
         prompt = f"""

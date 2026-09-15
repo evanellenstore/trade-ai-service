@@ -9,13 +9,14 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     kafka_bootstrap_servers: str = "localhost:9092"
-    kafka_group_id: str = "trade-ai-service"
+    kafka_group_id: str = "trade-ai-service-dev-v2"
     market_snapshot_topic: str = "market.snapshot"
     signal_generated_topic: str = "signal.generated"
     ai_decision_topic: str = "ai.decision"
     kafka_auto_offset_reset: str = "latest"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2:3b"
+    ollama_context_window: int = Field(default=8192, gt=0)
     ollama_temperature: float = Field(default=0.1, ge=0, le=2)
     ai_version: str = "1.0.0"
     llm_timeout_seconds: float = Field(default=30.0, gt=0)

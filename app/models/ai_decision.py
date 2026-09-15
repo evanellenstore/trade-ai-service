@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from app.models.market_snapshot import Candle
 
 
 class AIDecision(BaseModel):
@@ -25,3 +26,4 @@ class AIDecisionEvent(AIDecision):
     strategy: str
     ai_version: str = Field(alias="aiVersion")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    candles: list[Candle] = Field(default_factory=list)

@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.market_snapshot import MarketSnapshot
+from app.models.market_snapshot import Candle, MarketSnapshot
 from app.models.signal_generated import SignalGenerated
 
 
@@ -64,6 +64,7 @@ class TradingState(BaseModel):
     reason: Optional[str] = None
     snapshot_time: Optional[datetime] = None
     signal_reason: str = ""
+    candles: list[Candle] = Field(default_factory=list)
 
     @classmethod
     def from_events(cls, signal: SignalGenerated, snapshot: MarketSnapshot) -> "TradingState":
@@ -71,7 +72,7 @@ class TradingState(BaseModel):
         print(f"------------------------- Trading state from_events called with snapshot: {snapshot}")
         data = snapshot.model_dump()
         # print(f" ============ ========== Trading state data initialized: {data}")
-        for shared_field in ("symbol", "symbol_token", "timeframe", "price", "snapshot_time"):
+        for shared_field in ("symbol", "symbol_token", "timeframe", "price", "snapshot_time", "candles"):
             data.pop(shared_field, None)
             
        # print(f"============ ==========After popup Trading state data : {data}")  
@@ -90,6 +91,7 @@ class TradingState(BaseModel):
             signal_reason=signal.reason, 
             price=snapshot.price,
             snapshot_time=snapshot.snapshot_time,
+            candles=snapshot.candles,
             **data,
         )
         

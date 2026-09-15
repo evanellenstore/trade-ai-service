@@ -36,6 +36,7 @@ class DecisionService:
             confidence=result["confidence"],
             reason=result["reason"],
             aiVersion=self._settings.ai_version,
+            candles=snapshot.candles,
         )
         # Publish the completed decision so broker, portfolio, and monitoring services can react to it.
         await self._producer.publish(self._settings.ai_decision_topic, signal.symbol, decision)
