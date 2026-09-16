@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -79,6 +79,10 @@ class MarketSnapshot(BaseModel):
     pattern: str = "NONE"
     support1: Optional[float] = None
     resistance1: Optional[float] = None
+    stop_loss: Optional[float] = Field(default=None, alias="stopLoss")
+    take_profit: Optional[float] = Field(default=None, alias="takeProfit")
+    timeframe_analysis: dict[str, Any] = Field(default_factory=dict, alias="timeframeAnalysis")
+    strategy_weights: dict[str, float] = Field(default_factory=dict, alias="strategyWeights")
     signal_strength: Optional[str] = Field(alias="signalStrength", default=None)
     snapshot_time: datetime | None = Field(default=None, alias="snapshotTime")
     run_id: Optional[str] = Field(default=None, alias="runId")

@@ -46,6 +46,8 @@ class DecisionAgent:
                     - Support and resistance should be considered.
                     - Strategy output should be considered.
                     - If signals strongly conflict, return HOLD.
+                                        - The strategy field `approved_signal` is a hard gate. Return HOLD when it is HOLD,
+                                            even if `raw_signal` is BUY or SELL.
 
                     DECISION GUIDELINES:
 
@@ -96,7 +98,16 @@ class DecisionAgent:
         result = await self._ollama.decide(prompt)
 
         if hasattr(result, "model_dump"):
-            return result.model_dump()
+            result = result.model_dump()
+
+        if state.strategy_analysis.get("approved_signal") == "HOLD":
+            return {
+                **result,
+                "decision": "HOLD",
+                "confidence": 0,
+                "reason": "Strategy rejected the signal: "
+                f"{state.strategy_analysis.get('phase1_filter', 'FILTERED')}",
+            }
         
         print(f"------------------------- Decision Agent Result: {result}")
 

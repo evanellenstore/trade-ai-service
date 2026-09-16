@@ -54,6 +54,10 @@ class TradingState(BaseModel):
     supertrend_signal: Optional[str] = None
     support1: Optional[float] = None
     resistance1: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    timeframe_analysis: dict[str, Any] = Field(default_factory=dict)
+    strategy_weights: dict[str, float] = Field(default_factory=dict)
     pattern: str = "NONE"
     indicators: list[str] = Field(default_factory=list)
     market_analysis: dict[str, Any] = Field(default_factory=dict)

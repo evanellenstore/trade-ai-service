@@ -35,7 +35,7 @@
             "subProcess": true,
             "env": {
                 "PYTHONUNBUFFERED": "1",
-                "LOG_LEVEL": "DEBUG"
+                "LOG_LEVEL": "INFO"
             }
         },
         {
